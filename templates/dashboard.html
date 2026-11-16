@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Farm dashboard</h1>
+<div class="grid g4" id="kpis">
+  <div class="card kpi"><div class="v" id="k-robot">…</div><div class="l">Robot status</div></div>
+  <div class="card kpi"><div class="v" id="k-zones">…</div><div class="l">Zones with data (of 256)</div></div>
+  <div class="card kpi"><div class="v" id="k-moist">…</div><div class="l">Avg soil moisture</div></div>
+  <div class="card kpi"><div class="v" id="k-tds">…</div><div class="l">Avg TDS (ppm, extract)</div></div>
+  <div class="card kpi"><div class="v" id="k-temp">…</div><div class="l" id="k-temp-l">Latest temperature (NASA POWER)</div></div>
+</div>
+<div class="grid g2" style="grid-template-columns:minmax(320px,2fr) minmax(280px,1fr)">
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="flex:2">16×16 zone map <span class="muted small">(robot route: zigzag, zone 1 top-left)</span></h2>
+      <select id="layer" style="flex:1"><option value="moisture">Soil moisture</option><option value="tds">TDS</option><option value="crop">Best crop</option></select>
+    </div>
+    <div id="farmgrid"></div>
+    <div class="legend" id="legend"></div>
+    <p class="muted small">Pink border = last zone reported by the robot. Hatched = no reading yet.</p>
+  </div>
+  <div class="card" id="zonepanel"><h2>Zone details</h2><p class="muted">Click a zone on the map.</p></div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>{% endblock %}

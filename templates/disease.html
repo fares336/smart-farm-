@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Disease AI{% endblock %}
+{% block content %}
+<h1>Plant disease analysis</h1>
+<div class="grid g2">
+  <div class="card">
+    <p class="small muted">Photograph the affected leaf (one leaf, good light, fills the frame). A vision AI examines the photo (works for any plant) and a trained classifier (<code>{{ model_id }}</code>) gives a second opinion. You get the likely disease, causes, treatment, biological options and fertilizer guidance.</p>
+    <form id="f">
+      <label>Photo</label><input type="file" name="image" id="img" accept="image/jpeg,image/png,image/webp" capture="environment" required>
+      <img id="preview" style="max-width:100%;max-height:240px;margin-top:8px;border-radius:8px;display:none">
+      <div class="row"><div><label>Crop (optional)</label><select name="crop"><option value="">— not specified —</option>{% for c in crops %}<option>{{ c.name }}</option>{% endfor %}<option>Apple</option><option>Grape</option><option>Pepper</option><option>Strawberry</option><option>Citrus</option></select></div>
+      <div><label>Zone (optional, adds soil context)</label><input type="number" name="zone_id" min="1" max="256"></div></div>
+      <p><button id="go">Analyse image</button></p>
+    </form>
+    <p class="small muted">This is an initial screening tool. The model only knows a limited set of crops and diseases and may be less reliable on field photos.</p>
+    {% if log %}<h2>Recent analyses</h2><table>{% for l in log %}<tr><td>{{ l.created_at[:16].replace('T',' ') }}</td><td>{{ l.label }}</td><td>{{ l.confidence }}%</td></tr>{% endfor %}</table>{% endif %}
+  </div>
+  <div class="card report" id="out"><h2>Result</h2><p class="muted">Upload a photo to see the analysis.</p></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const $ = id => document.getElementById(id), esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const li = a => a && a.length ? "<ul>" + a.map(x => `<li>${esc(x)}</li>`).join("") + "</ul>" : "<p class='muted'>—</p>";
+$("img").onchange = e => { const f = e.target.files[0]; if (f) { $("preview").src = URL.createObjectURL(f); $("preview").style.display = "block"; } };
+const bar = v => `<div class="bar"><div style="width:${Math.max(0, Math.min(100, v || 0))}%"></div></div>`;
+function renderAI(a) {
+  if (a.is_plant === false) return `<h2>No plant detected</h2><p>${esc(a.explanation || "The image does not appear to show a plant. Please take a clearer photo of the plant.")}</p>`;
+  const d = a.diagnosis || {}, t = a.treatment || {}, fz = a.fertilizer || {};
+  return `<h2>${esc(a.healthy ? "Looks healthy" : d.name || "Diagnosis")}</h2>
+    <p><span class="tag">${esc(a.plant || "plant not identified")}</span> <span class="tag">${esc(d.type || "")}</span> ${d.agent ? `<span class="tag">${esc(d.agent)}</span>` : ""} ${a.urgent ? '<span class="pill off">Urgent</span>' : ""}</p>
+    <p>Confidence: <b>${esc(d.confidence ?? "?")}%</b> (${esc(d.certainty || "")})</p>${bar(d.confidence)}
+    ${a.image_quality === "poor" ? '<div class="warnbox">The photo quality is poor, so this diagnosis is less reliable. Retake it in good light, close to one affected leaf.</div>' : ""}
+    <h3>What the AI sees</h3>${li(a.visible_symptoms)}
+    <h3>Explanation</h3><p>${esc(a.explanation || "")}</p>
+    ${(a.differentials || []).length ? "<h3>Other possibilities</h3><ul>" + a.differentials.map(x => `<li><b>${esc(x.name)}</b> (${esc(x.confidence)}%) — ${esc(x.why || "")}</li>`).join("") + "</ul>" : ""}
+    <h3>Causes</h3>${li(a.causes)}
+    <h3>What to do now</h3>${li(t.immediate)}
+    <h3>Chemical options (follow the local label)</h3>${li(t.chemical)}
+    <h3>Biological options (beneficial bacteria / fungi)</h3>${li(t.biological)}
+    <h3>Prevention</h3>${li(a.prevention)}
+    <h3>Fertilizer guidance</h3><p>${esc(fz.recommendation || "")}</p>
+    ${(fz.support || []).length ? "<p><b>Support:</b> " + fz.support.map(esc).join(", ") + "</p>" : ""}${(fz.avoid || []).length ? "<p><b>Avoid:</b> " + fz.avoid.map(esc).join(", ") + "</p>" : ""}
+    ${(a.need_more_info || []).length ? "<h3>To be more certain</h3>" + li(a.need_more_info) : ""}`;
+}
+function renderClassifier(d) {
+  const k = d.report, p = d.predictions;
+  return `<h3 style="margin-top:20px">Second opinion: trained classifier</h3>
+    <p>${esc(p[0].label)} — <b>${p[0].confidence}%</b> ${bar(p[0].confidence)}</p>
+    <p class="small muted">Other: ${p.slice(1).map(x => esc(x.label) + " (" + x.confidence + "%)").join(", ") || "—"}. This model only knows a limited set of crops and diseases.</p>
+    ${d.ai ? "" : `<p><span class="tag">${esc(k.type)}</span> <span class="tag">${esc(k.agent)}</span></p><h3>What it is</h3><p>${esc(k.summary)}</p><h3>Causes</h3>${li(k.causes)}<h3>How to control it</h3>${li(k.control)}<h3>Prevention</h3>${li(k.prevention)}<h3>Fertilizer guidance</h3><p>${esc(k.fertilizer)}</p>`}
+    ${d.context.length ? "<h3>Your farm's conditions</h3>" + li(d.context) : ""}`;
+}
+$("f").onsubmit = async e => {
+  e.preventDefault(); $("go").disabled = true; $("out").innerHTML = "<h2>Result</h2><p class='muted'>Analysing… this can take up to a minute.</p>";
+  try {
+    const r = await fetch("/api/disease", {method: "POST", body: new FormData($("f"))}), d = await r.json();
+    if (!d.ok) { $("out").innerHTML = `<h2>Result</h2><div class="warnbox">${esc(d.error)}</div>`; return; }
+    let h = d.ai ? renderAI(d.ai) : "";
+    if (d.predictions) h += renderClassifier(d);
+    if (d.agree === true) h += '<p><span class="pill on">Both analyses agree</span></p>';
+    if (d.agree === false) h += '<div class="warnbox">The two analyses disagree. Retake the photo and have an agronomist confirm before treating.</div>';
+    h += d.warnings.map(w => `<div class="warnbox">${esc(w)}</div>`).join("") + d.errors.map(w => `<p class="small muted">${esc(w)}</p>`).join("");
+    $("out").innerHTML = h + `<div class="warnbox">${esc(d.disclaimer)}</div>`;
+  } catch (err) { $("out").innerHTML = `<h2>Result</h2><div class="warnbox">Request failed: ${esc(err.message)}</div>`; }
+  finally { $("go").disabled = false; }
+};
+</script>
+{% endblock %}

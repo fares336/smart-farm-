@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Farm &amp; Climate{% endblock %}
+{% block head %}<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">{% endblock %}
+{% block content %}
+<h1>Farm location, climate &amp; robot schedule</h1>
+<div class="grid g2">
+  <div class="card">
+    <h2>1. Choose the farm location</h2>
+    <p class="muted small">Click the map (or type coordinates) then press <b>Save</b>. Climate data is loaded for these coordinates.</p>
+    <div id="map"></div>
+    <form method="post" style="margin-top:10px">
+      <label>Farm name</label><input name="farm_name" value="{{ s.farm_name }}" maxlength="80">
+      <div class="row"><div><label>Latitude</label><input id="lat" name="lat" value="{{ s.lat }}" required></div>
+      <div><label>Longitude</label><input id="lon" name="lon" value="{{ s.lon }}" required></div></div>
+      <h2 style="margin-top:14px">2. Robot movement</h2>
+      <div class="row"><div><label>Robot speed (km/h)</label><input name="robot_speed_kmh" type="number" step="any" min="0.01" value="{{ s.robot_speed_kmh }}" required></div>
+      <div><label>Zone length (km)</label><input name="zone_length_km" type="number" step="any" min="0.01" value="{{ s.zone_length_km }}" required></div>
+      <div><label>Report interval (min)</label><input name="report_interval_min" type="number" step="any" min="1" value="{{ s.report_interval_min }}" required></div></div>
+      <label>Mission start (UTC, optional - used for the speed × time schedule)</label>
+      <input name="mission_start" type="datetime-local" value="{{ s.mission_start_input }}">
+      <p style="margin-top:12px"><button>Save settings</button></p>
+    </form>
+    <form method="post"><input type="hidden" name="action" value="start_now"><button class="sec">Start mission now</button></form>
+    <p class="small muted">At {{ s.robot_speed_kmh }} km/h and {{ s.zone_length_km }} km per zone the robot spends <b>{{ s.hours_per_zone }} h</b> per zone, so covering all 256 zones takes about <b>{{ s.total_days }} days</b>.</p>
+  </div>
+  <div class="card" id="climate"><h2>Climate (NASA POWER)</h2><p class="muted">Loading…</p></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const lat0 = parseFloat($("lat").value) || 30.5, lon0 = parseFloat($("lon").value) || 31;
+const map = L.map("map").setView([lat0, lon0], 9), mk = L.marker([lat0, lon0]).addTo(map);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {attribution: "© OpenStreetMap"}).addTo(map);
+map.on("click", e => { setPos(e.latlng.lat, e.latlng.lng); });
+function setPos(a, b) { $("lat").value = a.toFixed(5); $("lon").value = b.toFixed(5); mk.setLatLng([a, b]); loadClimate(); }
+["lat", "lon"].forEach(i => $(i).addEventListener("change", () => { const a = parseFloat($("lat").value), b = parseFloat($("lon").value); if (!isNaN(a) && !isNaN(b)) { mk.setLatLng([a, b]); map.panTo([a, b]); loadClimate(); } }));
+const f = (v, u = "") => v == null ? "—" : v + u;
+async function loadClimate(refresh) {
+  const box = $("climate"); box.innerHTML = "<h2>Climate (NASA POWER)</h2><p class='muted'>Loading…</p>";
+  const d = await (await fetch(`/api/climate?lat=${$("lat").value}&lon=${$("lon").value}${refresh ? "&refresh=1" : ""}`)).json();
+  if (!d.ok) { box.innerHTML = `<h2>Climate (NASA POWER)</h2><div class="warnbox">${d.error}</div>`; return; }
+  box.innerHTML = `<h2>Climate (NASA POWER)</h2>${d.error ? `<div class="warnbox">${d.error}</div>` : ""}
+  <div class="grid g4"><div class="kpi"><div class="v">${f(d.latest.t2m, " °C")}</div><div class="l">Temperature on ${d.latest.date}</div></div>
+  <div class="kpi"><div class="v">${f(d.latest.rh, "%")}</div><div class="l">Relative humidity</div></div>
+  <div class="kpi"><div class="v">${f(d.avg14.t2m, " °C")}</div><div class="l">14-day avg temperature</div></div>
+  <div class="kpi"><div class="v">${f(d.avg14.precip_total, " mm")}</div><div class="l">Rain, last 30 days</div></div></div>
+  <div class="scroll" style="margin-top:10px"><table><tr><th>Date</th><th>Avg °C</th><th>Max</th><th>Min</th><th>Rain mm</th><th>RH %</th><th>Solar kWh/m²</th></tr>
+  ${d.days.slice().reverse().map(r => `<tr><td>${r.date}</td><td>${f(r.t2m)}</td><td>${f(r.tmax)}</td><td>${f(r.tmin)}</td><td>${f(r.precip)}</td><td>${f(r.rh)}</td><td>${f(r.solar)}</td></tr>`).join("")}</table></div>
+  <p class="muted small">${d.source}. NASA POWER publishes daily values with a delay of a few days, so this is the most recent <i>available</i> day, not a live reading or a forecast.</p>
+  <button class="sec" onclick="loadClimate(true)">Refresh from NASA</button>`;
+}
+loadClimate();
+</script>
+{% endblock %}

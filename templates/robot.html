@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Robot{% endblock %}
+{% block content %}
+<h1>Robot connection (ESP32)</h1>
+<div class="grid g2">
+  <div class="card">
+    <h2>Connection status <span id="pill" class="pill {{ 'on' if status.online else 'off' }}">{{ 'Online' if status.online else 'Offline' }}</span></h2>
+    <p id="smsg">{{ status.message }}</p>
+    <p class="small muted">Status is based on the time of the robot's last successful data transmission. The robot is considered offline if nothing arrives for 1.5× the report interval ({{ status.interval_min|int }} min).{% if status.last_seen %}<br>Last data: {{ status.last_seen[:19].replace('T',' ') }} UTC · zone {{ status.last_zone }}{% if status.battery is not none %} · battery {{ status.battery|int }}%{% endif %}{% endif %}</p>
+    <h2>How the robot connects</h2>
+    <p class="small">The website is hosted online, so the ESP32 connects to the website's <b>public address</b> over Wi-Fi and sends an HTTP POST every hour. The website never needs to reach the robot's private IP.</p>
+    <label>Endpoint (POST, JSON)</label><pre>{{ endpoint }}</pre>
+    <label>API key (header <code>X-API-Key</code>)</label><pre>{{ api_key }}</pre>
+    <form method="post" action="{{ url_for('regenerate_key') }}" onsubmit="return confirm('The robot will stop working until you update the key in its firmware. Continue?')"><button class="sec">Generate a new key</button></form>
+  </div>
+  <div class="card">
+    <h2>Speed × time schedule</h2>
+    <p>Speed <b>{{ speed }} km/h</b>, zone length <b>{{ zlen }} km</b> → <b>{{ hpz }} h per zone</b> (zigzag 16×16).</p>
+    <p class="small muted">Mission start: {{ mission_start[:16].replace('T',' ') + ' UTC' if mission_start else 'not set (set it on the Farm page)' }}</p>
+    <p class="small"><b>How readings are linked to zones:</b> the robot reports its own zone (<code>zone_id</code>, or <code>row</code>+<code>col</code>) with every reading. The schedule above is only a cross-check: if the reported zone differs from the zone predicted by speed × time, the reading is flagged <span class="pill warnpill">off schedule</span> (robot slowed, stopped or drifted). If the robot sends no position at all, the website falls back to the schedule and marks the zone as <i>estimated</i>.</p>
+    <div class="scroll" style="max-height:220px"><table id="sched"><tr><th>Zone</th><th>Row</th><th>Col</th><th>Direction</th><th>Expected window (UTC)</th></tr></table></div>
+  </div>
+</div>
+<div class="card">
+  <h2>Latest robot readings</h2>
+  <div class="scroll"><table><tr><th>Received (UTC)</th><th>Zone</th><th>Moisture %</th><th>TDS ppm</th><th>Position source</th><th>Schedule check</th><th>Battery</th></tr>
+  {% for r in readings %}<tr><td>{{ r.received_at[:19].replace('T',' ') }}</td><td>{{ r.zone_id }}</td><td>{{ r.moisture if r.moisture is not none else '—' }}</td><td>{{ r.tds if r.tds is not none else '—' }}</td><td>{{ r.zone_method }}</td>
+  <td>{% if r.expected_zone is none %}<span class="muted">no schedule</span>{% elif r.expected_zone == r.zone_id %}<span class="pill on">on schedule</span>{% else %}<span class="pill warnpill">off schedule (expected {{ r.expected_zone }})</span>{% endif %}</td><td>{{ r.battery|int if r.battery is not none else '—' }}</td></tr>
+  {% else %}<tr><td colspan="7" class="muted">No robot readings yet.</td></tr>{% endfor %}</table></div>
+</div>
+<div class="card">
+  <h2>Payload &amp; test</h2>
+<pre>{
+  "robot_id": "robot-1",
+  "zone_id": 12,          // 1..256 (or send "row" and "col" instead, 1..16)
+  "moisture": 41.5,       // soil moisture %
+  "tds": 820,             // ppm of the soil-water extract
+  "battery": 87           // optional
+}</pre>
+  <p class="small">Test from a computer:</p>
+<pre>curl -X POST {{ endpoint }} \
+  -H "Content-Type: application/json" -H "X-API-Key: {{ api_key }}" \
+  -d '{"zone_id":1,"moisture":40,"tds":900}'</pre>
+  <p><a class="btn" href="{{ url_for('static', filename='esp32/smartfarm_robot.ino') }}" download>Download ESP32 Arduino sketch</a></p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+fetch("/api/schedule").then(r => r.json()).then(d => {
+  const t = document.getElementById("sched");
+  d.zones.slice(0, 256).forEach(z => { const tr = t.insertRow(); const w = z.start ? z.start.slice(5, 16).replace("T", " ") + " → " + z.end.slice(5, 16).replace("T", " ") : "—";
+    [z.zone, z.row, z.col, z.direction, w].forEach(v => tr.insertCell().textContent = v); });
+});
+setInterval(() => fetch("/api/robot/status").then(r => r.json()).then(s => { const p = document.getElementById("pill"); p.textContent = s.online ? "Online" : "Offline"; p.className = "pill " + (s.online ? "on" : "off"); document.getElementById("smsg").textContent = s.message; }), 30000);
+</script>
+{% endblock %}

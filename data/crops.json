@@ -1,0 +1,17 @@
+{
+  "_note": "Approximate agronomic ranges for screening only. Edit freely. moisture_opt = soil moisture % from the robot sensor; tds_opt / tds_limit = ppm of a prepared soil-water extract (indirect salinity indicator, not a standard EC measurement).",
+  "crops": [
+    {"id": "wheat",     "name": "Wheat",          "temp_opt": [15, 24], "temp_abs": [5, 32],  "moisture_opt": [30, 55], "tds_opt": 1200, "tds_limit": 2500},
+    {"id": "barley",    "name": "Barley",         "temp_opt": [12, 22], "temp_abs": [4, 32],  "moisture_opt": [25, 50], "tds_opt": 2500, "tds_limit": 5000},
+    {"id": "maize",     "name": "Maize",          "temp_opt": [20, 30], "temp_abs": [12, 38], "moisture_opt": [35, 60], "tds_opt": 1000, "tds_limit": 2000},
+    {"id": "rice",      "name": "Rice",           "temp_opt": [22, 32], "temp_abs": [16, 38], "moisture_opt": [60, 90], "tds_opt": 800,  "tds_limit": 1800},
+    {"id": "cotton",    "name": "Cotton",         "temp_opt": [22, 32], "temp_abs": [15, 40], "moisture_opt": [30, 55], "tds_opt": 2000, "tds_limit": 4000},
+    {"id": "sorghum",   "name": "Sorghum",        "temp_opt": [24, 32], "temp_abs": [15, 40], "moisture_opt": [25, 50], "tds_opt": 1800, "tds_limit": 3500},
+    {"id": "tomato",    "name": "Tomato",         "temp_opt": [18, 27], "temp_abs": [10, 35], "moisture_opt": [40, 65], "tds_opt": 1000, "tds_limit": 2000},
+    {"id": "potato",    "name": "Potato",         "temp_opt": [15, 22], "temp_abs": [7, 30],  "moisture_opt": [40, 65], "tds_opt": 800,  "tds_limit": 1600},
+    {"id": "onion",     "name": "Onion",          "temp_opt": [13, 24], "temp_abs": [7, 32],  "moisture_opt": [35, 60], "tds_opt": 800,  "tds_limit": 1500},
+    {"id": "faba",      "name": "Faba bean",      "temp_opt": [15, 22], "temp_abs": [5, 30],  "moisture_opt": [35, 60], "tds_opt": 1000, "tds_limit": 2000},
+    {"id": "sugarbeet", "name": "Sugar beet",     "temp_opt": [15, 25], "temp_abs": [5, 35],  "moisture_opt": [30, 55], "tds_opt": 2500, "tds_limit": 5000},
+    {"id": "berseem",   "name": "Berseem clover", "temp_opt": [15, 25], "temp_abs": [5, 35],  "moisture_opt": [40, 65], "tds_opt": 1200, "tds_limit": 2500}
+  ]
+}

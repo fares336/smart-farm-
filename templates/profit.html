@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Profit{% endblock %}
+{% block content %}
+<h1>Profitability &amp; costs</h1>
+<p class="muted small">Net profit = total revenue − total agricultural costs. Measured (actual) and estimated values are kept separate.</p>
+<div class="grid g4">
+  <div class="card kpi"><div class="v">{{ '%.0f'|format(measured.rev - measured.cost) }}</div><div class="l">Measured net profit (revenue {{ '%.0f'|format(measured.rev) }} − costs {{ '%.0f'|format(measured.cost) }})</div></div>
+  <div class="card kpi"><div class="v">{{ '%.0f'|format(estimated.rev - estimated.cost) }}</div><div class="l">Estimated net profit (revenue {{ '%.0f'|format(estimated.rev) }} − costs {{ '%.0f'|format(estimated.cost) }})</div></div>
+</div>
+<div class="card"><h2>Add a record</h2>
+<form method="post">
+  <div class="row"><div><label>Crop</label><input name="crop" list="cl" required><datalist id="cl">{% for c in crops %}<option value="{{ c.name }}">{% endfor %}</datalist></div>
+  <div><label>Zone (optional)</label><input name="zone_id" type="number" min="1" max="256"></div></div>
+  <div class="row"><div><label>Seed cost</label><input name="seed" type="number" step="any" min="0"></div><div><label>Fertilizer</label><input name="fertilizer" type="number" step="any" min="0"></div><div><label>Irrigation</label><input name="irrigation" type="number" step="any" min="0"></div><div><label>Other</label><input name="other" type="number" step="any" min="0"></div></div>
+  <div class="row"><div><label>Production (kg)</label><input name="production_kg" type="number" step="any" min="0"></div><div><label>Selling price per kg</label><input name="price_per_kg" type="number" step="any" min="0"></div><div><label>Notes</label><input name="notes" maxlength="200"></div></div>
+  <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="is_estimate" style="width:auto"> These are estimated values (not actual results)</label>
+  <p><button>Add record</button></p>
+</form></div>
+<div class="card"><h2>Records</h2><div class="scroll"><table><tr><th>Crop</th><th>Zone</th><th>Costs</th><th>Revenue</th><th>Net profit</th><th>Type</th><th></th></tr>
+{% for r in rows %}<tr><td>{{ r.crop }}</td><td>{{ r.zone_id or '—' }}</td><td>{{ '%.2f'|format(r.cost) }}</td><td>{{ '%.2f'|format(r.revenue) }}</td><td><b>{{ '%.2f'|format(r.net) }}</b></td><td><span class="pill {{ 'warnpill' if r.is_estimate else 'on' }}">{{ 'estimated' if r.is_estimate else 'measured' }}</span></td>
+<td><form method="post" action="{{ url_for('profit_delete', rid=r.id) }}" onsubmit="return confirm('Delete this record?')"><button class="danger" style="padding:3px 10px">Delete</button></form></td></tr>
+{% else %}<tr><td colspan="7" class="muted">No records yet.</td></tr>{% endfor %}</table></div></div>
+{% endblock %}

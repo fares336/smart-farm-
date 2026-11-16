@@ -1,0 +1,4 @@
+# Optional: local DINOv2 classifier (needs about 2 GB RAM). Not needed for the vision AI.
+-r requirements.txt
+torch>=2.1
+transformers>=4.40
